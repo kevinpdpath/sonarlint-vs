@@ -77,16 +77,11 @@ namespace SonarLint.Helpers
             return builder.ToImmutable();
         }
 
-        private readonly static ConcurrentDictionary<DiagnosticAnalyzer, byte> ProcessedAnalyzers = new ConcurrentDictionary<DiagnosticAnalyzer, byte>();
+        private readonly static ConcurrentDictionary<DiagnosticAnalyzer, DateTime> ProcessedAnalyzers = new ConcurrentDictionary<DiagnosticAnalyzer, DateTime>();
 
         public static void SetParameterValues(DiagnosticAnalyzer parameteredAnalyzer,
             AnalyzerOptions options)
         {
-            if (ProcessedAnalyzers.ContainsKey(parameteredAnalyzer))
-            {
-                return;
-            }
-
             var additionalFile = options.AdditionalFiles
                 .FirstOrDefault(f => ConfigurationFilePathMatchesExpected(f.Path));
 
@@ -96,6 +91,20 @@ namespace SonarLint.Helpers
             }
 
             var filePath = additionalFile.Path;
+            DateTime lastFileUpdate = File.GetLastWriteTime(filePath);
+
+            DateTime lastLoadedUpdate;
+            bool found = ProcessedAnalyzers.TryGetValue(parameteredAnalyzer, out lastLoadedUpdate);
+            if (found)
+            {
+                // We have already loaded parameters for this analyzer. 
+                // If the file has not been updated since then, we don't need to change anything.
+                if (lastLoadedUpdate == lastFileUpdate)
+                {
+                    return;
+                }
+            }
+
             var xml = XDocument.Load(filePath);
             var parameters = ParseParameters(xml);
 
@@ -127,7 +136,7 @@ namespace SonarLint.Helpers
                 propertyParameterPair.Property.SetValue(parameteredAnalyzer, convertedValue);
             }
 
-            ProcessedAnalyzers.AddOrUpdate(parameteredAnalyzer, 0, (a, b) => b);
+            ProcessedAnalyzers.AddOrUpdate(parameteredAnalyzer, lastFileUpdate, (a, b) => b);
         }
 
         private static object ChangeParameterType(string parameter, PropertyType type)
