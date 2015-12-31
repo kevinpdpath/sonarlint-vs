@@ -41,11 +41,26 @@ namespace SonarLint.Helpers
         {
             public string ParameterKey { get; set; }
             public string ParameterValue { get; set; }
+
+            public override string ToString()
+            {
+                return $"{ParameterKey} = {ParameterValue}";
+            }
         }
         public class RuleParameterValues
         {
             public string RuleId { get; set; }
             public List<RuleParameterValue> ParameterValues { get; set; } = new List<RuleParameterValue>();
+
+            public override string ToString()
+            {
+                string display = $"{RuleId}";
+                foreach (RuleParameterValue parameterValue in ParameterValues)
+                {
+                    display += $" | {parameterValue}";
+                }
+                return display;
+            }
         }
 
         //todo: this can become private when we remove the template rule
